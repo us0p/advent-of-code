@@ -1,7 +1,7 @@
 const assert = require("node:assert");
 const { describe, it } = require("node:test");
 
-const { getDestinationFloor, getStartOfBasementPosition } = require("./001");
+const { getDestinationFloor, getStartOfBasementPosition } = require("./001.js");
 
 describe("Testing getDestinationFloor", () => {
   it("(()) outputs 0", () => {
