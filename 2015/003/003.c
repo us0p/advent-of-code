@@ -71,7 +71,7 @@ char *produceKey(struct Position position) {
   return tmpBuffer;
 }
 
-struct Position receiveInstruction(char instruction) {
+struct Position positionDelta(char instruction) {
   struct Position p = {0, 0};
 
   switch (instruction) {
@@ -97,31 +97,76 @@ struct Position receiveInstruction(char instruction) {
   }
 }
 
+void processInstruction(struct HashMap *hm, struct Position *p,
+                        char instruction) {
+  struct Position deltaPosition = positionDelta(instruction);
+  p->x += deltaPosition.x;
+  p->y += deltaPosition.y;
+  char *key = produceKey(*p);
+  size_t keyToInt = stringToInt(key);
+  size_t hash = hash_function(keyToInt);
+  struct Node *house = hashMapGet(hm, hash, key);
+  if (house)
+    return;
+  struct Node *node = createNode(key);
+  hashMapSet(hm, hash, node);
+}
+
+void processInstructionWithBot(size_t *round, struct HashMap *hm,
+                               struct HashMap *hmb, struct Position *p,
+                               struct Position *pb, char instruction) {
+  struct Position deltaPosition = positionDelta(instruction);
+  if (*round % 2 == 0) {
+    p->x += deltaPosition.x;
+    p->y += deltaPosition.y;
+    char *key = produceKey(*p);
+    size_t keyToInt = stringToInt(key);
+    size_t hash = hash_function(keyToInt);
+    struct Node *houseSanta = hashMapGet(hm, hash, key);
+    struct Node *houseSantaBot = hashMapGet(hmb, hash, key);
+    if (!houseSanta && !houseSantaBot) {
+      struct Node *node = createNode(key);
+      hashMapSet(hm, hash, node);
+    }
+  } else {
+    pb->x += deltaPosition.x;
+    pb->y += deltaPosition.y;
+    char *key = produceKey(*pb);
+    size_t keyToInt = stringToInt(key);
+    size_t hash = hash_function(keyToInt);
+    struct Node *houseSanta = hashMapGet(hm, hash, key);
+    struct Node *houseSantaBot = hashMapGet(hmb, hash, key);
+    if (!houseSanta && !houseSantaBot) {
+      struct Node *node = createNode(key);
+      hashMapSet(hmb, hash, node);
+    }
+  }
+  *round += 1;
+}
+
 int main(void) {
   struct HashMap *santaMap = createHashMap();
   struct Position santaPosition = {0, 0};
-  char *startingKey = produceKey(santaPosition);
-  struct Node *rootNode = createNode(startingKey);
-  size_t keyIntRepresentation = stringToInt(startingKey);
-  size_t rootHash = hash_function(keyIntRepresentation);
-  hashMapSet(santaMap, rootHash, rootNode);
+  processInstruction(santaMap, &santaPosition, '\0');
+
+  struct HashMap *santaMap2 = createHashMap();
+  struct Position santaPosition2 = {0, 0};
+  struct HashMap *santaBotMap = createHashMap();
+  struct Position santaBotPosition = {0, 0};
+  processInstruction(santaMap2, &santaPosition2, '\0');
+  processInstruction(santaBotMap, &santaBotPosition, '\0');
+  size_t round = 0;
 
   FILE *f = fopen("input.txt", "r");
   for (char instruction = fgetc(f); instruction != EOF;
        instruction = fgetc(f)) {
-    struct Position deltaPosition = receiveInstruction(instruction);
-    santaPosition.x += deltaPosition.x;
-    santaPosition.y += deltaPosition.y;
-    char *key = produceKey(santaPosition);
-    size_t keyToInt = stringToInt(key);
-    size_t hash = hash_function(keyToInt);
-    struct Node *house = hashMapGet(santaMap, hash, key);
-    if (house)
-      continue;
-    struct Node *node = createNode(key);
-    hashMapSet(santaMap, hash, node);
+    processInstruction(santaMap, &santaPosition, instruction);
+    processInstructionWithBot(&round, santaMap2, santaBotMap, &santaPosition2,
+                              &santaBotPosition, instruction);
   }
   fclose(f);
 
   printf("The number of unique houses was: %lu\n", santaMap->size);
+  printf("The number of unique houses with bot was: %lu\n",
+         santaMap2->size + santaBotMap->size - 1);
 }
